@@ -21,13 +21,14 @@ def main(args):
 
     im_shape = (3, 64, 64)
 
+    # change root for mutlilabel (already dropped the nans within celebaCached)
     data_loaders = setup_data_loaders(args.cuda,
                                       args.batch_size,
                                       cache_data=True,
                                       sup_frac=args.sup_frac,
                                       root='./data/datasets/celeba')
 
-
+    # 
     cc_vae = CCVAE(z_dim=args.z_dim,
                    num_classes=len(CELEBA_EASY_LABELS),
                    im_shape=im_shape,
@@ -40,7 +41,7 @@ def main(args):
     for epoch in range(0, args.num_epochs):
 
         # # # compute number of batches for an epoch
-        if args.sup_frac == 1.0: # fullt supervised
+        if args.sup_frac == 1.0: # fully supervised
             batches_per_epoch = len(data_loaders["sup"])
             period_sup_batches = 1
             sup_batches = batches_per_epoch
@@ -78,7 +79,7 @@ def main(args):
                 ctr_sup += 1
             else:
                 (xs, ys) = next(unsup_iter)
-            
+
             if args.cuda:
                 xs, ys = xs.cuda(), ys.cuda()
 
@@ -93,7 +94,7 @@ def main(args):
             optim.step()
             optim.zero_grad()
             
-        if args.sup_frac != 0.0:        
+        if args.sup_frac != 0.0: # Only compute the accuracy if we have a fraction of supervised learning   
             with torch.no_grad():
                 validation_accuracy = cc_vae.accuracy(data_loaders['valid'])
         else:
@@ -120,8 +121,8 @@ def parser_args(parser):
     parser.add_argument('--cuda', action='store_true',
                         help="use GPU(s) to speed up training")
     parser.add_argument('-n', '--num-epochs', default=200, type=int,
-                        help="number of epochs to run")
-    parser.add_argument('-sup', '--sup-frac', default=1.0,
+                        help="number of epochs to run") 
+    parser.add_argument('-sup', '--sup-frac', default=0.9,
                         type=float, help="supervised fractional amount of the data i.e. "
                                          "how many of the images have supervised labels."
                                          "Should be a multiple of train_size / batch_size")

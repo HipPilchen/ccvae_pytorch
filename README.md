@@ -18,6 +18,6 @@ Pytorch repository for [Capturing Label Chacteristics in VAEs ICLR 2021](https:/
 
  To train, run:
 
->   `python ss_vay.py -sup <sup-frac> --cuda>`
+>   `python ss_vae.py -sup <sup-frac> --cuda>`
 
 where `<sup-frac>` is the fraction of supervised data (e.g. 0.004, 0.06, 0.2, 1.0).

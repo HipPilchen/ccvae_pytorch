@@ -14,6 +14,7 @@ def compute_kl(locs_q, scale_q, locs_p=None, scale_p=None):
     """
     Computes the KL(q||p)
     """
+    #initialize in case it is null
     if locs_p is None:
         locs_p = torch.zeros_like(locs_q)
     if scale_p is None:

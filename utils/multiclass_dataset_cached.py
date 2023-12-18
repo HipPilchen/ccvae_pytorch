@@ -35,15 +35,32 @@ def split_celeba(X, y, sup_frac, validation_num):
 
     return X_sup, y_sup, X_unsup, y_unsup, X_valid, y_valid
 
-CELEBA_LABELS = ['5_o_Clock_Shadow', 'Arched_Eyebrows','Attractive','Bags_Under_Eyes','Bald','Bangs','Big_Lips','Big_Nose','Black_Hair','Blond_Hair','Blurry','Brown_Hair','Bushy_Eyebrows', \
-                 'Chubby', 'Double_Chin','Eyeglasses','Goatee','Gray_Hair','Heavy_Makeup','High_Cheekbones','Male','Mouth_Slightly_Open','Mustache','Narrow_Eyes', 'No_Beard', 'Oval_Face', \
+def compute_uniform_prior_multiclass(dict_class_nclass:dict):
+    prior = []
+    dict_index_class = {}
+    i=0
+
+    for label, n_classes in dict_class_nclass.items():
+        uniform_distrib = [1/n_classes for i in range(n_classes)]
+        uniform_tensor = torch.tensor(uniform_distrib).unsqueeze(0)
+
+        prior.append(torch.distributions.categorical.Categorical(probs= uniform_tensor))
+        dict_index_class[i] = label
+        i+=1
+
+    dict_class_index = {v:k for k,v in dict_index_class.items()}
+    return prior, dict_class_index, dict_index_class
+
+
+CELEBA_LABELS = ['5_o_Clock_Shadow', 'Arched_Eyebrows','Attractive','Bags_Under_Eyes','Bangs','Big_Lips','Big_Nose','Blurry','Bushy_Eyebrows', \
+                 'Chubby', 'Double_Chin','Eyeglasses','Goatee','Heavy_Makeup','High_Cheekbones','Male','Mouth_Slightly_Open','Mustache','Narrow_Eyes', 'No_Beard', 'Oval_Face', \
                  'Pale_Skin','Pointy_Nose','Receding_Hairline','Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', \
-                'Wearing_Necklace', 'Wearing_Necktie', 'Young']
+                'Wearing_Necklace', 'Wearing_Necktie', 'Young', 'Hair_MULTI']
 
 CELEBA_EASY_LABELS = ['Arched_Eyebrows', 'Bags_Under_Eyes', 'Bangs', 'Black_Hair', 'Blond_Hair','Brown_Hair','Bushy_Eyebrows', 'Chubby','Eyeglasses', 'Heavy_Makeup', 'Male', \
                       'No_Beard', 'Pale_Skin', 'Receding_Hairline', 'Smiling', 'Wavy_Hair', 'Wearing_Necktie', 'Young']
 
-CELEBA_MULTI_LABELS = ['Black_Hair', 'Blond_Hair','Brown_Hair']
+CELEBA_MULTI_LABELS = {'Hair_MULTI': 5} # Multi-mabel: has 5 possible rankings
 
 class CELEBACached(CelebA):
     """
@@ -54,7 +71,7 @@ class CELEBACached(CelebA):
     train_data_sup, train_labels_sup = None, None
     train_data_unsup, train_labels_unsup = None, None
     train_data, test_labels = None, None
-    prior = torch.ones(1, len(CELEBA_EASY_LABELS)) / 2 # uniform prior
+    prior, dict_class_index, dict_index_class = compute_uniform_prior_multiclass(CELEBA_MULTI_LABELS)
     fixed_imgs = None
     validation_size = 20000
     data_valid, labels_valid = None, None
@@ -67,7 +84,7 @@ class CELEBACached(CelebA):
 
     def __init__(self, mode, sup_frac=None, *args, **kwargs):
         super(CELEBACached, self).__init__(split='train' if mode in ["sup", "unsup", "valid"] else 'test', *args, **kwargs)
-        self.sub_label_inds = [i for i in range(len(CELEBA_LABELS)) if CELEBA_LABELS[i] in CELEBA_EASY_LABELS] 
+        self.sub_label_inds = [i for i in range(len(CELEBA_LABELS)) if CELEBA_LABELS[i] in CELEBA_MULTI_LABELS.keys()] 
         self.mode = mode
         self.transform = transforms.Compose([
                                 transforms.Resize((64, 64)),
@@ -92,7 +109,16 @@ class CELEBACached(CelebA):
 
             if mode == "sup":
                 self.data, self.targets = CELEBACached.train_data_sup, CELEBACached.train_labels_sup
-                CELEBACached.prior = torch.mean(self.targets[:, self.sub_label_inds].float(), dim=0) # mean along the rows (mean of appearance for eacch label)
+                probs_prior = []
+                dataset_size = self.targets.shape[0]
+                for label_idx, label_name in CELEBACached.dict_index_class.items():
+                    n_classes = CELEBA_MULTI_LABELS[label_name]
+                    probs_label = []
+                    for i in range (n_classes):
+                        probs_label.append(torch.sum(self.targets[:, label_idx] == i).item() / dataset_size)
+                    probs_prior.append(probs_label)
+
+                CELEBACached.prior = [torch.distributions.categorical.Categorical(probs= torch.tensor(lab_prior).unsqueeze(0)) for lab_prior in probs_prior]
             elif mode == "unsup":
                 self.data = CELEBACached.train_data_unsup
                 # making sure that the unsupervised labels are not available to inference
@@ -124,7 +150,7 @@ class CELEBACached(CelebA):
         return len(self.data)
 
 
-def setup_data_loaders(use_cuda, batch_size, sup_frac=1.0, root=None, cache_data=False, download=False, **kwargs):
+def setup_data_loaders(use_cuda, batch_size, sup_frac=1.0, root=None, cache_data=False, download=False, multi_class=False, **kwargs):
     """
         helper function for setting up pytorch data loaders for a semi-supervised dataset
     :param use_cuda: use GPU(s) for training
@@ -155,7 +181,7 @@ def setup_data_loaders(use_cuda, batch_size, sup_frac=1.0, root=None, cache_data
         modes = ["unsup", "test", "sup", "valid"]
         
     for mode in modes:
-        cached_data[mode] = CELEBACached(mode, sup_frac, root=root, download=download, check_itr=download)
+        cached_data[mode] = CELEBACached(mode, sup_frac, root=root, download=download, check_itr=download, multi_class = multi_class)
         loaders[mode] = DataLoader(cached_data[mode], batch_size=batch_size, shuffle=True, **kwargs)
     return loaders
 
