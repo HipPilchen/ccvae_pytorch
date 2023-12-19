@@ -51,16 +51,19 @@ def compute_uniform_prior_multiclass(dict_class_nclass:dict):
     dict_class_index = {v:k for k,v in dict_index_class.items()}
     return prior, dict_class_index, dict_index_class
 
-
+# 41 labels
 CELEBA_LABELS = ['5_o_Clock_Shadow', 'Arched_Eyebrows','Attractive','Bags_Under_Eyes','Bangs','Big_Lips','Big_Nose','Blurry','Bushy_Eyebrows', \
                  'Chubby', 'Double_Chin','Eyeglasses','Goatee','Heavy_Makeup','High_Cheekbones','Male','Mouth_Slightly_Open','Mustache','Narrow_Eyes', 'No_Beard', 'Oval_Face', \
                  'Pale_Skin','Pointy_Nose','Receding_Hairline','Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', \
                 'Wearing_Necklace', 'Wearing_Necktie', 'Young', 'Hair_MULTI']
 
+# 18 labels
 CELEBA_EASY_LABELS = ['Arched_Eyebrows', 'Bags_Under_Eyes', 'Bangs', 'Black_Hair', 'Blond_Hair','Brown_Hair','Bushy_Eyebrows', 'Chubby','Eyeglasses', 'Heavy_Makeup', 'Male', \
                       'No_Beard', 'Pale_Skin', 'Receding_Hairline', 'Smiling', 'Wavy_Hair', 'Wearing_Necktie', 'Young']
-
-CELEBA_MULTI_LABELS = {'Hair_MULTI': 5} # Multi-mabel: has 5 possible rankings
+# 16 labels 
+# Take care to put multi-class labels at the end of the dict
+CELEBA_MULTI_LABELS = {'Arched_Eyebrows': 2, 'Bags_Under_Eyes': 2, 'Bangs': 2, 'Bushy_Eyebrows': 2, 'Chubby': 2, 'Eyeglasses': 2, 'Heavy_Makeup': 2, 'Male': 2, 
+                      'No_Beard': 2, 'Pale_Skin': 2, 'Receding_Hairline': 2, 'Smiling': 2, 'Wavy_Hair': 2, 'Wearing_Necktie': 2, 'Young': 2, 'Hair_MULTI': 5} # Multi-label: has 5 possible rankings
 
 class CELEBACached(CelebA):
     """

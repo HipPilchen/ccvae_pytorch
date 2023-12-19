@@ -2,6 +2,50 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+
+
+'''
+This part has been implemented for our project in Probabilistic Graphical Model: 
+We enable CCVAE to embed binary attribute but also multi-classes attributes (hair colors for instance)
+All the details and results are in the project report.
+'''
+
+# Only takes one multi-class label for now
+class Classifier_mc(nn.Module):
+    def __init__(self, z_dim, num_mc_classes):
+        super(Classifier_mc, self).__init__()
+        self.categorical_params = nn.Linear(z_dim, num_mc_classes)
+        
+    def forward(self, x):
+        return self.categorical_params(x)
+
+class CondPrior_mc(nn.Module):
+    def __init__(self, num_mc_classes, num_mc_labels):
+        super(CondPrior_mc, self).__init__()
+        
+        self.dim = num_mc_labels
+        self.num_mc_classes = num_mc_classes
+        
+        self.diag_loc = nn.ParameterList([nn.Parameter(torch.zeros(self.dim)) for i in range(self.num_mc_classes)])
+        self.diag_scale = nn.ParameterList([nn.Parameter(torch.ones(self.dim)) for i in range(self.num_mc_classes)])
+
+
+    def forward(self, x):
+        
+        x_ = x.int()
+        loc = torch.zeros((x.shape[0],1))
+        scale = torch.ones((x.shape[0],1))
+        for i, label in enumerate(x_):
+            loc[i,:] = self.diag_loc[int(label)]
+            scale[i,:] =  self.diag_scale[int(label)]
+        return loc.view(-1, 1), torch.clamp(F.softplus(scale.view(-1, 1)), min=1e-3)
+
+
+'''
+Codes forked from the Github of the paper
+'''
+
            
 class View(nn.Module):
     def __init__(self, size):

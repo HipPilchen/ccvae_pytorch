@@ -3,14 +3,16 @@ import argparse
 import torch
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
-
+from utils import multiclass_dataset_cached as mdc
 from utils.dataset_cached import setup_data_loaders, CELEBA_EASY_LABELS
+from utils.multiclass_dataset_cached import CELEBA_MULTI_LABELS
 from utils.dataset_cached import CELEBACached
-from models.ccvae import CCVAE
+from models.ccvae import CCVAE, mc_CCVAE
 
 import numpy as np
 import os
 
+NUM_MC_LABELS = 1
 
 def main(args):
     """
@@ -22,18 +24,37 @@ def main(args):
     im_shape = (3, 64, 64)
 
     # change root for mutlilabel (already dropped the nans within celebaCached)
-    data_loaders = setup_data_loaders(args.cuda,
-                                      args.batch_size,
-                                      cache_data=True,
-                                      sup_frac=args.sup_frac,
-                                      root='./data/datasets/celeba')
-
-    # 
-    cc_vae = CCVAE(z_dim=args.z_dim,
-                   num_classes=len(CELEBA_EASY_LABELS),
+    if args.mc:
+        data_loaders = mdc.setup_data_loaders(args.cuda,
+                                        args.batch_size,
+                                        cache_data=True,
+                                        sup_frac=args.sup_frac,
+                                        root='./data/datasets/celeba',
+                                        multi_class=True)
+        if args.pruned >0:
+            data_loaders = {name:mdc.random_prune_dataloader(dl, args.pruned) for name,dl in data_loaders.items()}
+        
+        cc_vae = mc_CCVAE(z_dim=args.z_dim,
+                   num_binary_classes=len(CELEBA_MULTI_LABELS)-NUM_MC_LABELS,
                    im_shape=im_shape,
-                   use_cuda=args.cuda,
-                   prior_fn=data_loaders['test'].dataset.prior_fn)
+                   use_cuda=args.cuda)
+    else:
+        data_loaders = setup_data_loaders(args.cuda,
+                                        args.batch_size,
+                                        cache_data=True,
+                                        sup_frac=args.sup_frac,
+                                        root='./data/datasets/celeba')
+        if args.pruned >0:
+            data_loaders = {name:mdc.random_prune_dataloader(dl, args.pruned) for name,dl in data_loaders.items()}
+            
+        cc_vae = CCVAE(z_dim=args.z_dim,
+                num_classes=len(CELEBA_EASY_LABELS),
+                im_shape=im_shape,
+                use_cuda=args.cuda,
+                prior_fn=data_loaders['test'].dataset.prior_fn)
+
+    
+
 
     optim = torch.optim.Adam(params=cc_vae.parameters(), lr=args.learning_rate)
 
@@ -76,35 +97,50 @@ def main(args):
             # extract the corresponding batch
             if is_supervised:
                 (xs, ys) = next(sup_iter)
+                if args.mc:
+                    y_b = ys[:,:-NUM_MC_LABELS]
+                    if NUM_MC_LABELS == 1:
+                        y_mc = ys[:,-NUM_MC_LABELS].unsqueeze(-1)
+                    else:
+                        y_mc = ys[:,-NUM_MC_LABELS]  
                 ctr_sup += 1
             else:
                 (xs, ys) = next(unsup_iter)
+                
 
             if args.cuda:
                 xs, ys = xs.cuda(), ys.cuda()
+                if args.mc:
+                    y_b, y_mc = y_b.cuda(), y_mc.cuda()
 
             if is_supervised:
-                loss = cc_vae.sup(xs, ys)
+                if not args.mc:
+                    loss = cc_vae.sup(xs, ys)
+                else:
+                    loss =  cc_vae.sup(xs, y_b, y_mc)
                 epoch_losses_sup += loss.detach().item()
             else:
                 loss = cc_vae.unsup(xs)
                 epoch_losses_unsup += loss.detach().item()
 
             loss.backward()
+            # print("Grad de mc:", cc_vae.cond_prior_mc.diag_loc[1].grad)
+            # print("Grad de binary:", cc_vae.cond_prior_binary.diag_scale_true.grad)
             optim.step()
             optim.zero_grad()
+
             
         if args.sup_frac != 0.0: # Only compute the accuracy if we have a fraction of supervised learning   
             with torch.no_grad():
                 validation_accuracy = cc_vae.accuracy(data_loaders['valid'])
         else:
             validation_accuracy = np.nan
-
         with torch.no_grad():
             # save some reconstructions
-            img = CELEBACached.fixed_imgs
+            img = mdc.CELEBACached.fixed_imgs
             if args.cuda:
                 img = img.cuda()
+  
             recon = cc_vae.reconstruct_img(img).view(-1, *im_shape)
             save_image(make_grid(recon, nrow=8), './data/output/recon.png')
             save_image(make_grid(img, nrow=8), './data/output/img.png')
@@ -114,7 +150,10 @@ def main(args):
     cc_vae.save_models(args.data_dir)
     test_acc = cc_vae.accuracy(data_loaders['test'])
     print("Test acc %.3f" % test_acc)
-    cc_vae.latent_walk(img[5], './data/output')
+    if args.mc:
+        cc_vae.mc_latent_walk(img[5], './data/output')
+    else:
+        cc_vae.latent_walk(img[5], './data/output')
     return 
 
 def parser_args(parser):
@@ -133,8 +172,12 @@ def parser_args(parser):
                         help="learning rate for Adam optimizer")
     parser.add_argument('-bs', '--batch-size', default=200, type=int,
                         help="number of images (and labels) to be considered in a batch")
-    parser.add_argument('--data_dir', type=str, default='./data',
+    parser.add_argument('--data_dir', type=str, default='./pretrained_weights',
                         help='Data path')
+    parser.add_argument('-multi_class','--mc', type=bool, default=False,
+                        help='Perform CCVAE with multi-classes labels')
+    parser.add_argument('-pruned','--pruned', type=float, default=0,
+                        help='Prune ratio (to keep)')
     return parser
 
 if __name__ == "__main__":
