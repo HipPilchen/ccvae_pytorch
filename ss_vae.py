@@ -55,6 +55,35 @@ def main(args):
 
     
 
+    # ENCODER_PATH = './pretrained_weights/weights_f90_80epoch_mc/encoder.pt'
+    # DECODER_PATH = './pretrained_weights/weights_f90_80epoch_mc/decoder.pt'
+    # COND_PRIOR_BIN_PATH = './pretrained_weights/weights_f90_80epoch_mc/cond_prior_binary.pt'
+    # CLASSIFIER_BIN_PATH = './pretrained_weights/weights_f90_80epoch_mc/classifier_binary.pt'
+    # COND_PRIOR_MC_PATH = './pretrained_weights/weights_f90_80epoch_mc/cond_prior_mc.pt'
+    # CLASSIFIER_MC_PATH = './pretrained_weights/weights_f90_80epoch_mc/classifier_mc.pt'
+    # # Load weights for the encoder
+    # encoder_checkpoint = torch.load(ENCODER_PATH)
+    # cc_vae.encoder.load_state_dict(encoder_checkpoint.state_dict())
+
+    # # Load weights for the decoder
+    # decoder_checkpoint = torch.load(DECODER_PATH)
+    # cc_vae.decoder.load_state_dict(decoder_checkpoint.state_dict())
+
+    # # Load weights for the classifier
+    # classifier_binary_checkpoint = torch.load(CLASSIFIER_BIN_PATH)
+    # cc_vae.classifier_binary.load_state_dict(classifier_binary_checkpoint.state_dict())
+
+    # # Load weights for the conditional prior
+    # cond_prior_binary_checkpoint = torch.load(COND_PRIOR_BIN_PATH)
+    # cc_vae.cond_prior_binary.load_state_dict(cond_prior_binary_checkpoint.state_dict())
+
+    # # Load weights for the classifier
+    # classifier_mc_checkpoint = torch.load(CLASSIFIER_MC_PATH)
+    # cc_vae.classifier_mc.load_state_dict(classifier_mc_checkpoint.state_dict())
+
+    # # Load weights for the conditional prior
+    # cond_prior_mc_checkpoint = torch.load(COND_PRIOR_MC_PATH)
+    # cc_vae.cond_prior_mc.load_state_dict(cond_prior_mc_checkpoint.state_dict())
 
     optim = torch.optim.Adam(params=cc_vae.parameters(), lr=args.learning_rate)
 
