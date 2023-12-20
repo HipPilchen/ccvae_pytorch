@@ -242,7 +242,7 @@ class mc_CCVAE(nn.Module):
 
         z_ = dist.Normal(*self.encoder(image.unsqueeze(0))).sample()
         mc_z_id = self.z_binary_classify
-        mult = 8
+        mult = 2
 
         z = z_.clone()
         z = z.expand(10, -1).contiguous()
@@ -258,6 +258,9 @@ class mc_CCVAE(nn.Module):
             locs_, scales_ = self.cond_prior_mc(y)
             locs.append(locs_)
             scales.append(scales_)
+            print("Label :",HAIR_ATTRIBUTES[i])
+            print("Mean of the Gaussian : ",locs_)
+            print("Variance of the Gaussian : ",scales_)
             
         for i in range(self.num_mc_classes):
             for j in range(self.num_mc_classes):   
@@ -266,31 +269,34 @@ class mc_CCVAE(nn.Module):
                          z_lim_1 = (locs[i] - mult * sign * scales[i]).item() 
                          z_lim_2 = (locs[j] - mult * sign * scales[j]).item() 
                          range_ = torch.linspace(z_lim_1, z_lim_2, 10)
+           
+                         print("For mc_latent_walk_between_%s_and_%s.png"
+                                                            % (HAIR_ATTRIBUTES[i],HAIR_ATTRIBUTES[j]),range_)
                          z[:, mc_z_id] = range_
                          imgs = self.decoder(z).view(-1, *self.im_shape)
                          grid = make_grid(imgs, nrow=10)
                          save_image(grid, 
                                     os.path.join(save_dir, "mc_latent_walk_between_%s_and_%s.png"
                                                             % (HAIR_ATTRIBUTES[i],HAIR_ATTRIBUTES[j])))
-        for j in range(self.num_binary_classes):
-            z = z_.clone()
-            z = z.expand(10, -1).contiguous()
-            y = torch.zeros(1, self.num_binary_classes)
-            if self.use_cuda:
-                y = y.cuda()
-            locs_false, scales_false = self.cond_prior_binary(y)
-            y[:, i].fill_(1.0)
-            locs_true, scales_true = self.cond_prior_binary(y)
-            sign = torch.sign(locs_true[:, i] - locs_false[:, i])
-            z_false_lim = (locs_false[:, i] - mult * sign * scales_false[:, i]).item()    
-            z_true_lim = (locs_true[:, i] + mult * sign * scales_true[:, i]).item()
-            range_ = torch.linspace(z_false_lim, z_true_lim, 10)
-            z[:, j] = range_
+        # for j in range(self.num_binary_classes):
+        #     z = z_.clone()
+        #     z = z.expand(10, -1).contiguous()
+        #     y = torch.zeros(1, self.num_binary_classes)
+        #     if self.use_cuda:
+        #         y = y.cuda()
+        #     locs_false, scales_false = self.cond_prior_binary(y)
+        #     y[:, i].fill_(1.0)
+        #     locs_true, scales_true = self.cond_prior_binary(y)
+        #     sign = torch.sign(locs_true[:, i] - locs_false[:, i])
+        #     z_false_lim = (locs_false[:, i] - mult * sign * scales_false[:, i]).item()    
+        #     z_true_lim = (locs_true[:, i] + mult * sign * scales_true[:, i]).item()
+        #     range_ = torch.linspace(z_false_lim, z_true_lim, 10)
+        #     z[:, j] = range_
 
-            imgs = self.decoder(z).view(-1, *self.im_shape)
-            grid = make_grid(imgs, nrow=10)
-            save_image(grid, os.path.join(save_dir, "latent_walk_%s.png"
-                                              % list(CELEBA_MULTI_LABELS.keys())[j]))
+        #     imgs = self.decoder(z).view(-1, *self.im_shape)
+        #     grid = make_grid(imgs, nrow=10)
+        #     save_image(grid, os.path.join(save_dir, "latent_walk_%s.png"
+        #                                       % list(CELEBA_MULTI_LABELS.keys())[j]))
                         
             
             
