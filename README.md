@@ -1,7 +1,7 @@
 # Capturing label characteristics in VAEs
 
 This is the repository of the  final project done for the MVA Master's course "Probabilistic Graph Models" (Prof. Latouche and Prof. Mattei). We extend and run additional experiments on the model developed in [Capturing Label Chacteristics in VAEs ICLR 2021](https://openreview.net/pdf?id=wQRlSUZ5V7B). More precisely, you will find:
-- A tutorial to create multi-class labels (e.g., $Hair \in [Brown \space Hair, Blond \space Hair, Bald, Black \space Hair]$. The transformed data is already present in the *data* folder
+- A tutorial to create multi-class labels (e.g., $Hair \in [Brown \space Hair, Blond \space Hair, Bald, Black \space Hair]$). The transformed data is already present in the *data* folder
 - Tutorials to setup the training (*tutorial\_data\_loader.ipynb*) in a binary class or multi-class fashion
 - Adapted code of *CCVAE* model for multi-class training
 - Several notebooks and the *report.pdf* that analyzes and discusses the results
